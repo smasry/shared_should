@@ -2,15 +2,13 @@ module SharedShould::SharedContext
   # class methods for Test::Unit::TestCase
   def self.extended(klass)
     class << klass
-      # these methods need to be aliased for both the test class and the should context
       alias_method :context_without_shared_proxies_executing, :context
       alias_method :should_without_param_support, :should
       alias_method :setup_without_param_support, :setup
     end
-    
     klass.extend(SharedContextMethods)
   end
-  
+
   # instance methods for Shoulda::Context
   def self.included(klass)
     klass.class_eval do
@@ -18,42 +16,42 @@ module SharedShould::SharedContext
       alias :context_without_shared_proxies_executing :context
       alias :should_without_param_support :should
       alias :setup_without_param_support :setup
-      
+
       # remove any methods we are going to define with our included module
       SharedContextMethods.instance_methods.each do |method_name|
         remove_method method_name if method_defined? method_name
       end
     end
-    
+
     klass.send(:include, SharedContextMethods)
   end
-  
+
   module SharedContextMethods
     def shared_proxies
       @shared_proxies ||= []
     end
-  
+
     def use_should(shared_name)
       return add_shared_proxy.use_should(shared_name)
     end
-    
+
     def use_context(shared_name)
       return add_shared_proxy.use_context(shared_name)
     end
-    
+
     def use_setup(shared_name)
       return add_shared_proxy.use_setup(shared_name)
     end
-    
+
     def setup(name = nil, &block)
       return add_shared_proxy.setup(name, &block)
     end
-  
+
     def context(name = nil, &block)
       if block
         shared_proxies_executing_block = Proc.new do
           block.bind(self).call
-        
+
           shared_proxies.each do |shared_proxy|
             shared_proxy.share_execute
           end
@@ -76,11 +74,11 @@ module SharedShould::SharedContext
     def share_context(shared_context_name, &shared_context_block)
       wrapping_shared_context_block = Proc.new do
         context share_description do
-          merge_block(&shared_context_block)
+          shared_context_block.bind(self).call
         end
       end
 
-      Test::Unit::TestCase.shared_context_block_owner(shared_context_for_block(shared_context_block)).shared_context_blocks[shared_context_name] = wrapping_shared_context_block
+      ActiveSupport::TestCase.shared_context_block_owner(shared_context_for_block(shared_context_block)).shared_context_blocks[shared_context_name] = wrapping_shared_context_block
     end
 
     def share_should(shared_should_name, &shared_should_block)
@@ -90,12 +88,12 @@ module SharedShould::SharedContext
         end
       end
 
-      Test::Unit::TestCase.shared_context_block_owner(shared_context_for_block(shared_should_block)).shared_should_blocks[shared_should_name] = shared_context_block
+      ActiveSupport::TestCase.shared_context_block_owner(shared_context_for_block(shared_should_block)).shared_should_blocks[shared_should_name] = shared_context_block
     end
 
     def share_setup(shared_name, &setup_block)
       current_context = eval('self', setup_block.binding)
-      Test::Unit::TestCase.shared_context_block_owner(current_context).shared_setup_blocks[shared_name] = setup_block
+      ActiveSupport::TestCase.shared_context_block_owner(current_context).shared_setup_blocks[shared_name] = setup_block
     end
 
     def shared_context_blocks
@@ -112,8 +110,8 @@ module SharedShould::SharedContext
 
     def find_shared_block(share_type, shared_name)
       current_context = self
-      while current_context.kind_of?(Shoulda::Context) || current_context < Test::Unit::TestCase do
-        if shared_block = Test::Unit::TestCase.shared_context_block_owner(current_context).send("shared_#{share_type}_blocks")[shared_name]
+      while current_context.kind_of?(Shoulda::Context) || current_context < ActiveSupport::TestCase do
+        if shared_block = ActiveSupport::TestCase.shared_context_block_owner(current_context).send("shared_#{share_type}_blocks")[shared_name]
           return shared_block
         end
         raise "Unable to find share_#{share_type}('#{shared_name}')" if current_context.kind_of?(Class)
@@ -122,9 +120,9 @@ module SharedShould::SharedContext
       end
       raise "Unable to find share_#{share_type}('#{shared_name}')"
     end
-    
+
   private
-  
+
     def add_shared_proxy
       (shared_proxies << SharedShould::SharedProxy.new(self)).last
     end

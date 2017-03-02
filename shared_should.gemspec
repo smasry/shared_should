@@ -17,6 +17,5 @@ Gem::Specification.new do |s|
   s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
   s.require_paths = ["lib"]
 
-  s.add_development_dependency('shoulda', ENV['SHOULDA_VERSION'] || "= 3.1.1") # Use SHOULDA_VERSION when testing different versions
-  s.add_dependency 'shoulda'
+  s.add_runtime_dependency 'shoulda'
 end

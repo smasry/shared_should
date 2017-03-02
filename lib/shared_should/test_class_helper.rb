@@ -6,16 +6,17 @@ module SharedShould::TestClassHelper
       @@setup_blocks = {}
 
       def self.execute_class_shared_proxies
+
         if @@shared_proxies_executed[self].nil?
           shared_proxies.each do |shared_proxy|
-            shared_proxy.share_execute
+            shared_proxy.share_execute(self)
           end
           @@shared_proxies_executed[self] = true
         end
       end
 
       def self.shared_context_block_owner(context_or_test_class)
-        return context_or_test_class.kind_of?(Shoulda::Context) ? context_or_test_class : Test::Unit::TestCase
+        return context_or_test_class.kind_of?(Shoulda::Context) ? context_or_test_class : ActiveSupport::TestCase
       end
 
       def execute_class_shared_setups_if_not_executed
@@ -27,9 +28,13 @@ module SharedShould::TestClassHelper
         end
       end
 
-      def self.setup(&setup_block)
-        @@setup_blocks[self] = [] unless @@setup_blocks[self]
-        @@setup_blocks[self] << setup_block
+      def self.setup(*args, &setup_block)
+        if args
+          set_callback(:setup, :before, *args, &setup_block)
+        else
+          @@setup_blocks[self] = [] unless @@setup_blocks[self]
+          @@setup_blocks[self] << setup_block
+        end
       end
 
       def setup_shared_value(initialization_block)
